@@ -1,27 +1,25 @@
 ﻿using System.Reflection;
 using System.Text.Json;
 using JetBrains.Annotations;
+using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
-using SPTarkov.Server.Core.Helpers;
-using SPTarkov.Server.Core.Models.Common;
+using SPTarkov.Server.Core.Helpers.Server;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
-using SPTarkov.Server.Core.Models.Utils;
-using SPTarkov.Server.Core.Servers;
+using SPTarkov.Server.Core.Models.Enums;
+using SPTarkov.Server.Core.Models.Spt.Tables;
 using Path = System.IO.Path;
 
 namespace StartReferenceEarly;
 
-[UsedImplicitly]
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 1)]
-public class StartReferenceEarly(DatabaseServer dbServer, ModHelper modHelper, ISptLogger<StartReferenceEarly> logger) : IOnLoad
+[Injectable(TypePriority = OnLoadOrder.Preload + 1), UsedImplicitly]
+public class StartReferenceEarly(TemplateTable templateTable, ModHelper modHelper, ISptLogger<StartReferenceEarly> logger) : IOnLoad
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new() { WriteIndented = true };
-    private readonly MongoId _prereqQuest = QuestTpl.INFORMED_MEANS_ARMED;
-    private List<VisibilityCondition> _visibilityConditions = [];
+
     private SREConfig? _config;
 
-    public Task OnLoad()
+    public Task OnLoadAsync(CancellationToken cancellationToken)
     {
         var path = modHelper.GetAbsolutePathToModFolder(Assembly.GetExecutingAssembly());
         var configPath = Path.Combine(path, "config.json");
@@ -33,7 +31,7 @@ public class StartReferenceEarly(DatabaseServer dbServer, ModHelper modHelper, I
             File.WriteAllText(configPath, json);
         }
         _config = modHelper.GetJsonDataFromFile<SREConfig>(path, "config.json");
-        var quests = dbServer.GetTables().Templates.Quests;
+        var quests = templateTable.Quests;
         if (!quests.TryGetValue(QuestTpl.IS_THIS_A_REFERENCE, out var quest)) return Task.CompletedTask;
         var conditions = new List<QuestCondition>();
         var originalConditions = quest.Conditions.AvailableForStart;
